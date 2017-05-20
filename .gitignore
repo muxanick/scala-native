@@ -10,3 +10,7 @@ bin/.scalafmt*
 sbt-crossproject/
 .vscode/launch.json
 *.iml
+.vscode/settings.json
+ensime-langserver.log
+pc.stdout.log
+*.swp

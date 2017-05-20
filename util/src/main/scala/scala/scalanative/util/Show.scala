@@ -7,6 +7,7 @@ case class ShowBuilderPosition(pos: Int, indent: Int)
 
 final class ShowBuilder {
   private var sb          = new java.lang.StringBuilder
+  private var sbDebugInfo = new java.lang.StringBuilder
   private var indentation = 0
 
   def str(value: Any): Unit =
@@ -26,6 +27,11 @@ final class ShowBuilder {
     localsb.append("  " * position.indent)
     localsb.append(value.toString)
     sb.insert(position.pos, localsb.toString)
+  }
+
+  def addDebugInfoLine(value:Any): Unit = {
+    sbDebugInfo.append(value.toString)
+    sbDebugInfo.append("\n")
   }
 
   def rep[T](values: Seq[T], sep: String = "")(f: T => Unit): Unit =

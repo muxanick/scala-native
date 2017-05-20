@@ -28,6 +28,9 @@ object Show {
   def apply(v: Op): String    = { val b = newBuilder; b.op_(v); b.toString }
   def apply(v: Type): String  = { val b = newBuilder; b.type_(v); b.toString }
   def apply(v: Val): String   = { val b = newBuilder; b.val_(v); b.toString }
+  def apply(v: DebugInfo): String = {
+    val b = newBuilder; b.debugInfo_(v); b.toString
+  }
 
   final class NirShowBuilder(val builder: ShowBuilder) extends AnyVal {
     import builder._
@@ -593,6 +596,17 @@ object Show {
         str(scope)
         str(".")
         str(id)
+    }
+
+    def debugInfo_(di: DebugInfo): Unit = { di match {
+      case DebugInfo.CompileUnit(_, _, _, _, _, _, _)               =>
+      case DebugInfo.Info(_)                                        =>
+      case DebugInfo.Location(_, _, _)                              =>
+      case DebugInfo.Subprogram(_, _, _, _, _, _, _, _, _, _, _, _) =>
+      case DebugInfo.File(filename, directory) =>
+      }
+      str(", !dbg ")
+      str(di.id)
     }
 
     private def escapeNewLine(s: String): String =
