@@ -3,18 +3,26 @@ package tests
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-final case object AssertionFailed extends Exception
+final case class AssertionFailed(message: String = null) extends Exception
 
-final case class Test(name: String, run: () => Boolean)
+final case class Test(name: String, run: () => (Boolean, String))
 
 abstract class Suite {
   private val tests = new mutable.UnrolledBuffer[Test]
 
   def assert(cond: Boolean): Unit =
-    if (!cond) throw AssertionFailed else ()
+    if (!cond) throw new AssertionFailed else ()
+
+  def assert(cond: Boolean, message: => Any): Unit =
+    if (!cond) throw new AssertionFailed("assertion failed: " + message)
+    else ()
 
   def assertNot(cond: Boolean): Unit =
-    if (cond) throw AssertionFailed else ()
+    if (cond) throw new AssertionFailed else ()
+
+  def assertNot(cond: Boolean, message: => Any): Unit =
+    if (cond) throw new AssertionFailed("assetionNot failed: " + message)
+    else ()
 
   def assertThrowsAnd[T: ClassTag](f: => Unit)(fe: T => Boolean): Unit = {
     try {
@@ -25,16 +33,19 @@ abstract class Suite {
             fe(exc.asInstanceOf[T]))
           return
         else
-          throw AssertionFailed
+          throw new AssertionFailed
     }
-    throw AssertionFailed
+    throw new AssertionFailed
   }
 
   def assertThrows[T: ClassTag](f: => Unit): Unit =
     assertThrowsAnd[T](f)(_ => true)
 
-  def assertEquals[T](left: T, right: T): Unit =
-    assert(left == right)
+  def assertEquals[T](left: T, right: T, message: => Any = null): Unit =
+    assert(left == right,
+           s"'${right}' is not equal to '${left}' : " + (if (message != null)
+                                                           message
+                                                         else ""))
 
   private def assertThrowsImpl(cls: Class[_], f: => Unit): Unit = {
     try {
@@ -44,9 +55,9 @@ abstract class Suite {
         if (exc.getClass.equals(cls))
           return
         else
-          throw AssertionFailed
+          throw new AssertionFailed
     }
-    throw AssertionFailed
+    throw new AssertionFailed
   }
 
   def expectThrows[T <: Throwable, U](expectedThrowable: Class[T],
@@ -54,22 +65,30 @@ abstract class Suite {
     assertThrowsImpl(expectedThrowable, code)
 
   def test(name: String)(body: => Unit): Unit =
-    tests += Test(name, { () =>
-      try {
-        body
-        true
-      } catch {
-        case _: Throwable => false
+    tests += Test(
+      name, { () =>
+        try {
+          body
+          (true, null)
+        } catch {
+          case a: AssertionFailed => (false, a.message)
+          case b: Throwable => {
+            val sw = new java.io.StringWriter
+            val pw = new java.io.PrintWriter(sw)
+            b.printStackTrace(pw)
+            (false, sw.toString)
+          }
+        }
       }
-    })
+    )
 
   def testFails(name: String, issue: Int)(body: => Unit): Unit =
     tests += Test(name, { () =>
       try {
         body
-        false
+        (false, null)
       } catch {
-        case _: Throwable => true
+        case _: Throwable => (true, null)
       }
     })
 
@@ -79,9 +98,10 @@ abstract class Suite {
 
     tests.foreach { test =>
       val testSuccess = test.run()
-      val status      = if (testSuccess) "  [ok] " else "  [fail] "
+      val status      = if (testSuccess._1) "  [ok] " else "  [fail] "
       println(status + test.name)
-      success = success && testSuccess
+      if (testSuccess._2 != null) println("       " + testSuccess._2)
+      success = success && testSuccess._1
     }
 
     success
