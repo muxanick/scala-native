@@ -25,7 +25,7 @@ object Defn extends Base[nir.Defn] {
   val Define =
     P(Attrs.parser ~ "def" ~ Global.parser ~ ":" ~ Type.parser ~ "{" ~ Inst.parser.rep ~ "}" map {
       case (attrs, name, ty, insts) =>
-        nir.Defn.Define(attrs, name, ty, insts)
+        nir.Defn.Define(attrs, name, ty, insts, nir.DebugInfo << name)
     })
   val Struct =
     P(

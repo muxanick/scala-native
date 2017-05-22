@@ -185,7 +185,7 @@ final class BinaryDeserializer(_buffer: => ByteBuffer) {
       Defn.Declare(getAttrs, getGlobal, getType)
 
     case T.DefineDefn =>
-      Defn.Define(getAttrs, getGlobal, getType, getInsts)
+      Defn.Define(getAttrs, getGlobal, getType, getInsts, getDebugInfo)
 
     case T.StructDefn =>
       Defn.Struct(getAttrs, getGlobal, getTypes)
@@ -197,9 +197,10 @@ final class BinaryDeserializer(_buffer: => ByteBuffer) {
       Defn.Class(getAttrs, getGlobal, getGlobalOpt, getGlobals)
 
     case T.ModuleDefn =>
-      Defn.Module(getAttrs, getGlobal, getGlobalOpt, getGlobals)
+      Defn.Module(getAttrs, getGlobal, getGlobalOpt, getGlobals, getDebugInfo)
   }
 
+  private def getDebugInfo(): DebugInfo = DebugInfo << buffer
   private def getGlobals(): Seq[Global]      = getSeq(getGlobal)
   private def getGlobalOpt(): Option[Global] = getOpt(getGlobal)
   private def getGlobal(): Global = {

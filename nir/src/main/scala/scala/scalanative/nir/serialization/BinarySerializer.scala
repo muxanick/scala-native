@@ -205,14 +205,15 @@ final class BinarySerializer(buffer: ByteBuffer) {
       putInt(T.DeclareDefn)
       putAttrs(attrs)
       putGlobal(name)
-      putType(ty)
+      putType(ty)      
 
-    case Defn.Define(attrs, name, ty, insts) =>
+    case Defn.Define(attrs, name, ty, insts, di) =>
       putInt(T.DefineDefn)
       putAttrs(attrs)
       putGlobal(name)
       putType(ty)
       putInsts(insts)
+      putDebugInfo(di)
 
     case Defn.Struct(attrs, name, members) =>
       putInt(T.StructDefn)
@@ -233,12 +234,13 @@ final class BinarySerializer(buffer: ByteBuffer) {
       putGlobalOpt(parent)
       putGlobals(ifaces)
 
-    case Defn.Module(attrs, name, parent, ifaces) =>
+    case Defn.Module(attrs, name, parent, ifaces, di) =>
       putInt(T.ModuleDefn)
       putAttrs(attrs)
       putGlobal(name)
       putGlobalOpt(parent)
       putGlobals(ifaces)
+      putDebugInfo(di)
   }
 
   private def putGlobals(globals: Seq[Global]): Unit =
@@ -251,6 +253,8 @@ final class BinarySerializer(buffer: ByteBuffer) {
     case Global.Member(n, id) =>
       putInt(T.MemberGlobal); putGlobal(n); putString(id)
   }
+
+  private def putDebugInfo(di: DebugInfo): Unit = di >> buffer
 
   private def putLocal(local: Local): Unit = {
     putString(local.scope); putInt(local.id)

@@ -473,13 +473,14 @@ object Show {
         str("def ")
         global_(name)
         str(" : ")
-        type_(ty)
-      case Defn.Define(attrs, name, ty, insts) =>
+        type_(ty)        
+      case Defn.Define(attrs, name, ty, insts, di) =>
         attrs_(attrs)
         str("def ")
         global_(name)
         str(" : ")
         type_(ty)
+        debugInfo_(di)
         str(" {")
         rep(insts) {
           case inst: Inst.Label =>
@@ -517,7 +518,7 @@ object Show {
           str(" : ")
           rep(parents, sep = ", ")(global_)
         }
-      case Defn.Module(attrs, name, parent, ifaces) =>
+      case Defn.Module(attrs, name, parent, ifaces, di) =>
         val parents = parent ++: ifaces
         attrs_(attrs)
         str("module ")
@@ -526,6 +527,7 @@ object Show {
           str(" : ")
           rep(parents, sep = ", ")(global_)
         }
+        debugInfo_(di)
     }
 
     def type_(ty: Type): Unit = ty match {
@@ -598,15 +600,9 @@ object Show {
         str(id)
     }
 
-    def debugInfo_(di: DebugInfo): Unit = { di match {
-      case DebugInfo.CompileUnit(_, _, _, _, _, _, _)               =>
-      case DebugInfo.Info(_)                                        =>
-      case DebugInfo.Location(_, _, _)                              =>
-      case DebugInfo.Subprogram(_, _, _, _, _, _, _, _, _, _, _, _) =>
-      case DebugInfo.File(filename, directory) =>
-      }
-      str(", !dbg ")
-      str(di.id)
+    def debugInfo_(di: DebugInfo): Unit = {
+      addDebugInfoLine(di.getLine())
+      str(di.lineId())
     }
 
     private def escapeNewLine(s: String): String =

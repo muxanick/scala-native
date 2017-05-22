@@ -87,7 +87,8 @@ class ModuleLowering(implicit top: Top, fresh: Fresh) extends Pass {
             Inst.Let(Op.Store(clsTy, slot, alloc)),
             initCall,
             Inst.Ret(alloc)
-          )
+          ),
+          null
         )
 
         buf += clsDefn

@@ -45,7 +45,8 @@ class Main(entry: Global)(implicit fresh: Fresh) extends Inject {
         Inst.Let(
           Op.Call(PrintStackTraceSig, PrintStackTrace, Seq(exc), Next.None)),
         Inst.Ret(Val.Int(1))
-      )
+      ),
+      null
     )
   }
 }

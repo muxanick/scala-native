@@ -15,7 +15,7 @@ class UnitLowering(implicit fresh: Fresh) extends Pass {
 
   override def onDefn(defn: Defn) = super.onDefn {
     defn match {
-      case defn @ Defn.Define(_, _, Type.Function(_, retty), blocks) =>
+      case defn @ Defn.Define(_, _, Type.Function(_, retty), blocks, di) =>
         defnRetty = retty
       case _ =>
         ()

@@ -30,7 +30,8 @@ class HasTrait(implicit top: Top, fresh: Fresh) extends Inject {
                          Seq(Val.Int(0), classid, traitid))),
         Inst.Let(result.name, Op.Load(Type.Bool, boolptr)),
         Inst.Ret(result)
-      )
+      ),
+      null
     )
   }
 
@@ -51,7 +52,8 @@ class HasTrait(implicit top: Top, fresh: Fresh) extends Inject {
                          Seq(Val.Int(0), leftid, rightid))),
         Inst.Let(result.name, Op.Load(Type.Bool, boolptr)),
         Inst.Ret(result)
-      )
+      ),
+      null
     )
   }
 

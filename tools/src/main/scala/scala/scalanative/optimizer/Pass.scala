@@ -25,7 +25,7 @@ trait Pass extends AnyPass {
       defn.copy(ty = onType(ty), rhs = onVal(value))
     case defn @ Defn.Declare(_, _, ty) =>
       defn.copy(ty = onType(ty))
-    case defn @ Defn.Define(_, _, ty, insts) =>
+    case defn @ Defn.Define(_, _, ty, insts, _) =>
       defn.copy(ty = onType(ty), insts = onInsts(insts))
     case defn @ Defn.Struct(_, _, tys) =>
       defn.copy(tys = tys.map(onType))

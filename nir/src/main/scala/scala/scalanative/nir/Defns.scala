@@ -18,7 +18,8 @@ object Defn {
   final case class Define(attrs: Attrs,
                           name: Global,
                           ty: Type,
-                          insts: Seq[Inst])
+                          insts: Seq[Inst],
+                          di: DebugInfo)
       extends Defn
   final case class Struct(attrs: Attrs, name: Global, tys: Seq[Type])
       extends Defn
@@ -34,6 +35,7 @@ object Defn {
   final case class Module(attrs: Attrs,
                           name: Global,
                           parent: Option[Global],
-                          traits: Seq[Global])
+                          traits: Seq[Global],
+                          di: DebugInfo)
       extends Defn
 }

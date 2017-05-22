@@ -211,4 +211,21 @@ object Tags {
   final val UnitVal   = 1 + GlobalVal
   final val ConstVal  = 1 + UnitVal
   final val StringVal = 1 + ConstVal
+
+  final val tagEnum = new TagEnum(Val + 31)
+  final val DbgInf,
+            IdRefDbgInf,
+            CompileUnitDbgInf,
+            FileDbgInf,
+            InfoDbgInf,
+            SubprogramDbgInf,
+            LocationDbgInf   = tagEnum()
+}
+
+final class TagEnum(i: Int)
+{
+  private var id = new java.util.concurrent.atomic.AtomicInteger(i)
+    def apply():Int = {
+        id.getAndIncrement()
+    }
 }

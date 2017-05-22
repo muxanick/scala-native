@@ -120,8 +120,9 @@ object CodeGen {
               defn.copy(attrs.copy(isExtern = true), rhs = Val.None)
             case defn @ Defn.Declare(attrs, _, _) =>
               defn.copy(attrs.copy(isExtern = true))
-            case defn @ Defn.Define(attrs, _, _, _) =>
+            case defn @ Defn.Define(attrs, _, _, _, _) =>
               defn.copy(attrs.copy(isExtern = true), insts = Seq())
+            case _ => null
           }
         }
       }
@@ -136,7 +137,8 @@ object CodeGen {
         case Defn.Var(_, _, ty, _)     => ty
         case Defn.Const(_, _, ty, _)   => ty
         case Defn.Declare(_, _, sig)   => sig
-        case Defn.Define(_, _, sig, _) => sig
+        case Defn.Define(_, _, sig, _, _) => sig
+        case _ => null
       }
     }
 
@@ -195,9 +197,9 @@ object CodeGen {
         case Defn.Const(attrs, name, ty, rhs) =>
           genGlobalDefn(attrs, name, isConst = true, ty, rhs)
         case Defn.Declare(attrs, name, sig) =>
-          genFunctionDefn(attrs, name, sig, Seq())
-        case Defn.Define(attrs, name, sig, blocks) =>
-          genFunctionDefn(attrs, name, sig, blocks)
+          genFunctionDefn(attrs, name, sig, Seq(), null)
+        case Defn.Define(attrs, name, sig, blocks, di) =>
+          genFunctionDefn(attrs, name, sig, blocks, di)
         case defn =>
           unsupported(defn)
       }
@@ -236,7 +238,8 @@ object CodeGen {
     def genFunctionDefn(attrs: Attrs,
                         name: Global,
                         sig: Type,
-                        insts: Seq[Inst]): Unit = {
+                        insts: Seq[Inst],
+                        di: DebugInfo): Unit = {
       val Type.Function(argtys, retty) = sig
 
       val isDecl = insts.isEmpty
@@ -252,6 +255,7 @@ object CodeGen {
         insts.head match {
           case Inst.Label(_, params) =>
             rep(params, sep = ", ")(genVal)
+          case _ =>
         }
       }
       str(")")
