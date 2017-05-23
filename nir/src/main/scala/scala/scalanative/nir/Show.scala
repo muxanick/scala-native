@@ -528,6 +528,9 @@ object Show {
           rep(parents, sep = ", ")(global_)
         }
         debugInfo_(di)
+      case Defn.CompileUnit(attrs, name, filename, di) =>
+        str(s"// Compile module: $filename")
+        debugInfo_(di)
     }
 
     def type_(ty: Type): Unit = ty match {
@@ -601,7 +604,7 @@ object Show {
     }
 
     def debugInfo_(di: DebugInfo): Unit = {
-      addDebugInfoLine(di.getLine())
+      addDebugInfoLine(di.getLine)
       str(di.lineId())
     }
 

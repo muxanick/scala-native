@@ -15,7 +15,8 @@ trait NirFiles { self: NirCodeGen =>
     val baseDir: AbstractFile =
       settings.outputDirs.outputDirFor(cunit.source.file)
 
-    val id        = genTypeName(sym).id
+    val rawid        = genTypeName(sym).id
+    val id = if (sym.isPackage) (rawid.replace("$", ".") + cunit.toString).replace(".scala", "") else rawid
     val pathParts = id.split("[./\\\\]")
     val dir       = (baseDir /: pathParts.init)(_.subdirectoryNamed(_))
 

@@ -43,7 +43,7 @@ class ModuleLowering(implicit top: Top, fresh: Fresh) extends Pass {
     val buf = mutable.UnrolledBuffer.empty[Defn]
 
     defns.foreach {
-      case Defn.Module(attrs, clsName @ ClassRef(cls), parent, ifaces) =>
+      case Defn.Module(attrs, clsName @ ClassRef(cls), parent, ifaces, di) =>
         val clsDefn = Defn.Class(attrs, clsName, parent, ifaces)
         val clsTy   = Type.Class(clsName)
 

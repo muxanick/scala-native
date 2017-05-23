@@ -33,6 +33,13 @@ final class BinarySerializer(buffer: ByteBuffer) {
       putDefn(defn)
       pos
     }
+
+    val dicu = defns.collectFirst {
+      case Defn.CompileUnit(_, _, _, di) => di.asInstanceOf[DebugInfo.CompileUnit].dicu
+    }.getOrElse(null)
+
+    DebugInfo.serialize(buffer)(dicu)
+
     val end = buffer.position
 
     positions.zip(offsets).map {
@@ -240,6 +247,10 @@ final class BinarySerializer(buffer: ByteBuffer) {
       putGlobal(name)
       putGlobalOpt(parent)
       putGlobals(ifaces)
+      putDebugInfo(di)
+    case Defn.CompileUnit(attrs, name, filename, di) =>
+      putInt(T.CompileUnitDefn)
+      putString(filename)
       putDebugInfo(di)
   }
 

@@ -99,6 +99,7 @@ object Tags {
   final val TraitDefn   = 1 + StructDefn
   final val ClassDefn   = 1 + TraitDefn
   final val ModuleDefn  = 1 + ClassDefn
+  final val CompileUnitDefn  = 1 + ModuleDefn
 
   // Control-flow ops
 

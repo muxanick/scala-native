@@ -29,6 +29,8 @@ final class BinaryDeserializer(_buffer: => ByteBuffer) {
     map
   }
 
+  private implicit val dicu = new DebugInfoDataBase(0)
+
   private var deps: mutable.Set[Dep]        = _
   private var links: mutable.Set[Attr.Link] = _
   private var dyns: mutable.Set[String]     = _
@@ -198,9 +200,12 @@ final class BinaryDeserializer(_buffer: => ByteBuffer) {
 
     case T.ModuleDefn =>
       Defn.Module(getAttrs, getGlobal, getGlobalOpt, getGlobals, getDebugInfo)
+    
+    case T.CompileUnitDefn =>
+      Defn.CompileUnit(Attrs.None, Global.None, getString, getDebugInfo.unref[DebugInfo.CompileUnit])
   }
 
-  private def getDebugInfo(): DebugInfo = DebugInfo << buffer
+  private def getDebugInfo()(implicit dicu: DebugInfoDataBase): DebugInfo = DebugInfo << buffer
   private def getGlobals(): Seq[Global]      = getSeq(getGlobal)
   private def getGlobalOpt(): Option[Global] = getOpt(getGlobal)
   private def getGlobal(): Global = {

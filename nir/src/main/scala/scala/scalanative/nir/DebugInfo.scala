@@ -3,6 +3,7 @@ package nir
 
 import java.util.concurrent.atomic.AtomicInteger
 import java.nio.ByteBuffer
+import scala.scalanative.nir.DebugInfo.IdRef
 import serialization.{Tags => T}
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -13,115 +14,132 @@ sealed abstract class DebugInfo() {
 
   def lineId(): String = s" !dbg !${id}"
 
-  def isDistinct = ???
-  def getLine(): String = ???
+  def isDistinct: Nothing = ???
+  def getLine: String = ???
   def >>(buffer: ByteBuffer): Unit = ???
   def <<(buffer: ByteBuffer): Unit = ???
+  def unref[T <: DebugInfo](implicit dicu: DebugInfoDataBase):T = dicu.db.getOrElse(id, null).asInstanceOf[T]
 }
 
-final object DebugInfo {
-
-  // clear all data
-  def reset(): Unit = {
-   id = new AtomicInteger(0)
-   idToDbgInf.clear
+sealed class DebugInfoDataBase(n:Int) {
+  private val id = new AtomicInteger(n)
+  private val idToDbgInf = mutable.Map.empty[Int, DebugInfo]
+  def index:Int = id.get
+  def getNext: Int = id.getAndIncrement
+  def db = idToDbgInf
+  def add(di:DebugInfo):IdRef = di match {
+    case d: IdRef => d
+    case _ => {
+      if (!db.contains(di.id)) { db.update(di.id, di) }
+      new IdRef(di)
+    }
   }
+  def reset(n:Int):Unit = {
+    id.set(n)
+    idToDbgInf.clear
+  }
+}
 
-  def getOrCreateCompileUnit(file: DebugInfo): IdRef = {
-    val di = idToDbgInf.values.find( _ match {
-      case DebugInfo.CompileUnit(_, f, _, opt, _, _, _, _, _) => file.id == f.id
+object DebugInfo {
+
+  val version: Int  = 0
+  val revision: Int = 1
+
+  def getOrCreateCompileUnit(file: DebugInfo)(implicit dicu: DebugInfoDataBase): IdRef = {
+    val di = dicu.db.values.find {
+      case d:DebugInfo.CompileUnit => file.id == d.id
       case _ => false
-    }).getOrElse( DebugInfo.CompileUnit("scala",
+    }.getOrElse( DebugInfo.CompileUnit(dicu, "scala",
                                             new IdRef(file),
                                             "scala-native-0.3.0-SNAPSHOT",
                                             isOptimized = true,
                                             runtimeVersion = 0,
                                             emissionKind = "FullDebug",
-                                            enums = new IdRef(DebugInfo.getOrCreateEnums()),
-                                            globals = new IdRef(DebugInfo.getOrCreateGlobals()))
+                                            enums = new IdRef(DebugInfo.getOrCreateEnums),
+                                            globals = new IdRef(DebugInfo.getOrCreateGlobals), dicu.getNext)
        )
-       new IdRef(di)
+       dicu.add(di)
   }
 
-  def getOrCreateFile(filename: String): IdRef = {
-    val di = idToDbgInf.values.find( _ match {
+  def getOrCreateFile(filename: String)(implicit dicu: DebugInfoDataBase): IdRef = {
+    val di = dicu.db.values.find {
       case DebugInfo.File(f, _, _) => filename == f
       case _ => false
-    }).getOrElse ( DebugInfo.File(filename, "") )
-    new IdRef(di)
+    }.getOrElse ( DebugInfo.File(filename, "", dicu.getNext) )
+    dicu.add(di)
   }
 
-  def getOrCreateEnums(): IdRef = {
-    new IdRef( new DebugInfo.Info(Seq.empty))
+  def getOrCreateEnums()(implicit dicu: DebugInfoDataBase): IdRef = {
+    dicu.add( new DebugInfo.Info(Seq.empty, dicu.getNext))
   }
 
-  def getOrCreateGlobals(): IdRef = {
-    new IdRef( new DebugInfo.Info(Seq.empty))
+  def getOrCreateGlobals()(implicit dicu: DebugInfoDataBase): IdRef = {
+    dicu.add( new DebugInfo.Info(Seq.empty, dicu.getNext))
   }
 
-  def getOrCreateSubprogram(name:String, line:Int): IdRef = {
-    val di = idToDbgInf.values.find( _ match {
-      case DebugInfo.Subprogram(n, _, _, l, _, _, _, _, _, _, _, _, _) => (name == n && l == line)
+  def getOrCreateSubprogram(name:String, line:Int)(implicit dicu: DebugInfoDataBase): IdRef = {
+    val di = dicu.db.values.find {
+      case DebugInfo.Subprogram(n, _, _, l, _, _, _, _, _, _, _, _, _) => name == n && l == line
       case _ => false
-    }).getOrElse ( DebugInfo.Subprogram(name,
+    }.getOrElse ( new DebugInfo.Subprogram(name,
                                         IdRef(-1),
                                         IdRef(-1),
                                         line,
                                         IdRef(-1),
-                                        true,
-                                        true,
+                                        isLocal = true,
+                                        isDefinition = true,
                                         -1,
                                         "",
-                                        true,
+                                        isOptimized = true,
                                         IdRef(-1),
-                                        IdRef(-1)                                        
+                                        IdRef(-1),
+                                        dicu.getNext
                                         ) )
-    new IdRef(di)
+    dicu.add(di)
   }
+
+  val None = IdRef(-1)
   
-  def <<(buffer: ByteBuffer): DebugInfo.IdRef = {
+  def <<(buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase): DebugInfo.IdRef = {
     val id = buffer.getInt
-    buffer.getInt match {
+    dicu.add(buffer.getInt match {
       case T.IdRefDbgInf => new DebugInfo.IdRef(id, buffer)
-      case T.CompileUnitDbgInf => new DebugInfo.IdRef(new DebugInfo.CompileUnit(id, buffer))
-      case T.FileDbgInf => new DebugInfo.IdRef(new DebugInfo.File(id, buffer))
-      case T.InfoDbgInf => new DebugInfo.IdRef(new DebugInfo.Info(id, buffer))
-      case T.SubprogramDbgInf => new DebugInfo.IdRef(new DebugInfo.Subprogram(id, buffer))
-      case T.LocationDbgInf => new DebugInfo.IdRef(new DebugInfo.Location(id, buffer))
-    }
+      case T.CompileUnitDbgInf => new DebugInfo.CompileUnit(id, buffer)
+      case T.FileDbgInf => new DebugInfo.File(id, buffer)
+      case T.InfoDbgInf => new DebugInfo.Info(id, buffer)
+      case T.SubprogramDbgInf => new DebugInfo.Subprogram(id, buffer)
+      case T.LocationDbgInf => new DebugInfo.Location(id, buffer)
+    })
   }
 
-  def <<(name: Global): DebugInfo = name match {
-    case Global.Top(id)       => new DebugInfo.CompileUnit("scala", null, "scala-native 0.3.0-SNAPSHOT", true, 0, "LineTablesOnly", null, null)
-    case Global.Member(n, id) => new DebugInfo.Subprogram(s"$id", null, null, 1, null, true, true, 88, "DIFlagPrototyped", true, new DebugInfo.IdRef(0), null)
-    case _ => null
+  def <<(name: Global): DebugInfo = {
+    None
   }
 
-  def getNext(): Int = id.getAndIncrement()
-  private implicit def intToUtilityInt(value: Int) = new UtilityInt(value)
-  private implicit def stringToUtilityString(value: String) = new UtilityString(value)
-  private implicit def booleanToUtilityBoolean(value: Boolean) = new UtilityBoolean(value)
+  private implicit def intToUtilityInt(value: Int): UtilityInt = new UtilityInt(value)
+  private implicit def stringToUtilityString(value: String): UtilityString = new UtilityString(value)
+  private implicit def booleanToUtilityBoolean(value: Boolean): UtilityBoolean = new UtilityBoolean(value)
 
-  final case class IdRef(override val id:Int = getNext) extends DebugInfo {
+  final case class IdRef(override val id:Int) extends DebugInfo {
     def this(newid:Int, buffer: ByteBuffer) = {
       this(newid)
     }
     def this(ref:DebugInfo) = {
       this(ref.id)
     }
+
     override def getLine(): String = {
-      idToDbgInf.getOrElse(id, null).getLine
+      null//dicu.db.getOrElse(id, null).getLine
     }
 
     override def >>(buffer: ByteBuffer): Unit = {
-      import buffer._
       id >> buffer
       T.IdRefDbgInf >> buffer
     }
   }
 
-  final case class GlobalVariableExpression(variable: IdRef, override val id:Int = getNext) extends DebugInfo {
-    def this(newid:Int, buffer: ByteBuffer) = {
+  final case class GlobalVariableExpression(variable: IdRef, override val id:Int) extends DebugInfo {
+    def this(newid:Int, buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase) = {
       this(DebugInfo << buffer, newid)
     }
 
@@ -130,7 +148,6 @@ final object DebugInfo {
     }
 
     override def >>(buffer: ByteBuffer): Unit = {
-      import buffer._
       id >> buffer
       T.IdRefDbgInf >> buffer
     }
@@ -138,7 +155,8 @@ final object DebugInfo {
 
   
   
-  final case class CompileUnit(language: String,
+  final case class CompileUnit(dicu: DebugInfoDataBase,
+                               language: String,
                                file: IdRef,
                                producer: String,
                                isOptimized: Boolean,
@@ -146,9 +164,9 @@ final object DebugInfo {
                                emissionKind: String,
                                enums: IdRef,
                                globals: IdRef,
-                               override val id:Int = getNext) extends DebugInfo {
-    def this(newid:Int, buffer: ByteBuffer) = {
-      this(getString(buffer), DebugInfo << buffer, getString(buffer), getBoolean(buffer), buffer.getInt, getString(buffer), DebugInfo << buffer, DebugInfo << buffer, newid)
+                               override val id:Int) extends DebugInfo {
+    def this(newid:Int, buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase) = {
+      this(dicu, getString(buffer), DebugInfo << buffer, getString(buffer), getBoolean(buffer), buffer.getInt, getString(buffer), DebugInfo << buffer, DebugInfo << buffer, newid)
     }
     override def getLine(): String = {
        s"!${id} = !DICompileUnit(language: ${language}, file: !${file.id}, producer: ${producer}, isOptimized: ${isOptimized}, runtimeVersion: ${runtimeVersion}, emissionKind: ${emissionKind}, enums: !${enums.id}, globals: !${globals.id})"
@@ -166,12 +184,10 @@ final object DebugInfo {
       enums >> buffer
       globals >> buffer
     }
-
-    idToDbgInf.update(id, this)
   }
 
-  final case class File(filename: String, directory: String, override val id:Int = getNext) extends DebugInfo {
-    def this(newid:Int, buffer: ByteBuffer) = {
+  final case class File(filename: String, directory: String, override val id:Int) extends DebugInfo {
+    def this(newid:Int, buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase) = {
       this(getString(buffer), getString(buffer), newid)
     }
     override def getLine(): String = {
@@ -184,12 +200,10 @@ final object DebugInfo {
       filename >> buffer
       directory >> buffer
     }
-
-    idToDbgInf.update(id, this)
   }
 
-  final case class Info(args: Seq[Any], override val id:Int = getNext) extends DebugInfo {
-    def this(newid:Int, buffer: ByteBuffer) = {
+  final case class Info(args: Seq[Any], override val id:Int) extends DebugInfo {
+    def this(newid:Int, buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase) = {
       this(Seq.empty, newid)
     }
     override def getLine(): String = {
@@ -200,8 +214,6 @@ final object DebugInfo {
       id >> buffer
       T.InfoDbgInf >> buffer
     }
-
-    idToDbgInf.update(id, this)
   }
 
   final case class Subprogram(name: String,
@@ -216,8 +228,8 @@ final object DebugInfo {
                               isOptimized: Boolean,
                               unit: IdRef,
                               variables: IdRef,
-                              override val id:Int = getNext) extends DebugInfo {
-    def this(newid:Int, buffer: ByteBuffer) = {
+                              override val id:Int) extends DebugInfo {
+    def this(newid:Int, buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase) = {
       this(getString(buffer), DebugInfo << buffer, DebugInfo << buffer, buffer.getInt, DebugInfo << buffer, getBoolean(buffer), getBoolean(buffer), buffer.getInt, getString(buffer), getBoolean(buffer), DebugInfo << buffer, DebugInfo << buffer, newid)
     }
     override def getLine(): String = {
@@ -239,12 +251,10 @@ final object DebugInfo {
       unit >> buffer
       variables >> buffer
     }
-
-    idToDbgInf.update(id, this)
   }
   
-  final case class Location(line: Int, column: Int, scope: IdRef, override val id:Int = getNext) extends DebugInfo {
-    def this(newid:Int, buffer: ByteBuffer) = {
+  final case class Location(line: Int, column: Int, scope: IdRef, override val id:Int) extends DebugInfo {
+    def this(newid:Int, buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase) = {
       this(buffer.getInt, buffer.getInt, DebugInfo << buffer, newid)
     }
     override def getLine(): String = {
@@ -258,12 +268,27 @@ final object DebugInfo {
       column >> buffer
       scope >> buffer
     }
-
-    idToDbgInf.update(id, this)
   }
 
-  private var id = new AtomicInteger(0)
-  private val idToDbgInf = mutable.Map.empty[Int, DebugInfo]
+  private val pool = new scala.scalanative.io.ByteBufferPool
+
+  def serialize(buffer: ByteBuffer)(implicit dicu: DebugInfoDataBase): Unit = {
+    val local = pool.claim()
+    local.clear
+    version >> local
+    revision >> local
+    dicu.index >> local
+    dicu.db.size >> local
+    dicu.db.foreach( x => {
+      x._1 >> local
+      x._2 >> local
+    })
+
+    local.position() >> buffer
+    local.flip
+    buffer.put(local)
+    pool.reclaim(local)
+  }
 
   def escapeString(s: String): String = {
     s.replace("\\", "\\5C")

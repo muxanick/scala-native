@@ -106,6 +106,8 @@ abstract class NirCodeGen
     private implicit def fresh: Fresh =
       curMethodEnv.fresh
 
+    private implicit var dicu = new DebugInfoDataBase(0)
+
     override def run(): Unit = {
       scalaPrimitives.init()
       nirPrimitives.init()
@@ -124,10 +126,7 @@ abstract class NirCodeGen
           }
         }
 
-        DebugInfo.reset()
-        val diSourceFile = DebugInfo.getOrCreateFile(cunit.source.file.path)
-        val diCompileUnit = DebugInfo.getOrCreateCompileUnit(diSourceFile)
-
+        
         val (anonDefs, classDefs) = collectClassDefs(cunit.body).partition {
           cd =>
             cd.symbol.isAnonymousFunction
@@ -137,16 +136,21 @@ abstract class NirCodeGen
 
         val allDefns = UnrolledBuffer.empty[(Symbol, Seq[nir.Defn])]
 
+        dicu = new DebugInfoDataBase(0)
+        val diSourceFile = DebugInfo.getOrCreateFile(cunit.body.pos.source.file.path)
+        val diCompileUnit = DebugInfo.getOrCreateCompileUnit(diSourceFile)
+        val defncunit = Seq(Defn.CompileUnit(nir.Attrs.None, nir.Global.None, cunit.body.pos.source.file.path, diCompileUnit.unref[DebugInfo.CompileUnit]))
+
         classDefs.foreach { cd =>
           val sym = cd.symbol
 
           if (isPrimitiveValueClass(sym) || (sym == ArrayClass)) ()
-          else allDefns += sym -> genClass(cd)
+          else allDefns += sym -> (defncunit ++ genClass(cd))
         }
 
         lazyAnonDefs.foreach {
           case (sym, cd) =>
-            allDefns += sym -> genClass(cd)
+            allDefns += sym -> (defncunit ++ genClass(cd))
         }
 
         allDefns.foreach {
@@ -194,7 +198,7 @@ abstract class NirCodeGen
       genMethods(cd)
 
       curClassDefns += {
-        if (sym.isScalaModule) Defn.Module(attrs, name, parent, traits, DebugInfo.getOrCreateSubprogram(name.id, sym.rawatt.source.lineToOffset(sym.pos)))
+        if (sym.isScalaModule) Defn.Module(attrs, name, parent, traits, DebugInfo.getOrCreateSubprogram(name.id, cd.pos.source.offsetToLine(cd.pos.point)))
         else if (sym.isInterface) Defn.Trait(attrs, name, traits)
         else Defn.Class(attrs, name, parent, traits)
       }
@@ -302,7 +306,7 @@ abstract class NirCodeGen
 
           case rhs =>
             val body = genNormalMethodBody(params, rhs, isStatic)
-            curClassDefns += Defn.Define(attrs, name, sig, body, DebugInfo.getOrCreateSubprogram(name.id, sym.source.lineToOffset(dd.pos)))
+            curClassDefns += Defn.Define(attrs, name, sig, body, DebugInfo.getOrCreateSubprogram(name.id, dd.pos.source.offsetToLine(dd.pos.point)))
         }
       }
     }
@@ -1645,7 +1649,7 @@ abstract class NirCodeGen
               val body = genNormalMethodBody(
                   params, apply.rhs, isStatic = true)
 
-              curClassDefns += Defn.Define(attrs, name, sig, body)
+              curClassDefns += Defn.Define(attrs, name, sig, body, null)
 
               focus withValue Val.Global(name, Type.Ptr)
           }

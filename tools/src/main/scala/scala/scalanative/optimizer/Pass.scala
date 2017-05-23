@@ -33,7 +33,9 @@ trait Pass extends AnyPass {
       defn
     case defn @ Defn.Class(_, _, _, _) =>
       defn
-    case defn @ Defn.Module(_, _, _, _) =>
+    case defn @ Defn.Module(_, _, _, _, _) =>
+      defn
+    case defn @ Defn.CompileUnit(_, _, _, _) =>
       defn
   }
 
