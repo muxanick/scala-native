@@ -1,6 +1,8 @@
 package scala.scalanative
 package sbtplugin
 
+import util._
+
 import sbtcrossproject.CrossPlugin.autoImport._
 import ScalaNativePlugin.autoImport._
 
@@ -10,11 +12,13 @@ import scalanative.io.VirtualDirectory
 import scalanative.util.{Scope => ResourceScope}
 
 import sbt._, Keys._, complete.DefaultParsers._
+import xsbti.{Maybe, Reporter, Position, Severity, Problem}
+import KeyRanks.DTask
 
 import scala.util.Try
 
 import System.{lineSeparator => nl}
-import java.io.ByteArrayInputStream
+import java.io.{File, ByteArrayInputStream}
 
 object ScalaNativePluginInternal {
 
@@ -66,7 +70,7 @@ object ScalaNativePluginInternal {
     nativeExternalDependencies := ResourceScope { implicit scope =>
       val forceCompile = compileTask.value
       val classDir     = classDirectory.value
-      val globals      = linker.ClassPath(VirtualDirectory.real(classDir)).globals
+      val globals      = linker.Path(VirtualDirectory.real(classDir)).globals
 
       val config = tools.Config.empty.withPaths(Seq(classDir))
       val result = (linker.Linker(config)).link(globals.toSeq)
@@ -92,27 +96,22 @@ object ScalaNativePluginInternal {
     }
 
   lazy val projectSettings =
-    dependencies ++
-      inConfig(Compile)(scalaNativeSettings) ++
-      inConfig(Test)(scalaNativeSettings)
+    unscopedSettings ++
+      inConfig(Compile)(externalDependenciesTask(compile)) ++
+      inConfig(Test)(externalDependenciesTask(compile in Test)) ++
+      inConfig(Compile)(availableDependenciesTask(compile)) ++
+      inConfig(Test)(availableDependenciesTask(compile in Test)) ++
+      inConfig(Compile)(nativeMissingDependenciesTask) ++
+      inConfig(Test)(nativeMissingDependenciesTask)
 
-  lazy val scalaNativeSettings =
-    scopedSettings ++
-      externalDependenciesTask(compile) ++
-      availableDependenciesTask(compile) ++
-      nativeMissingDependenciesTask
-
-  lazy val dependencies = Seq(
+  lazy val unscopedSettings = Seq(
     libraryDependencies ++= Seq(
       "org.scala-native" %%% "nativelib" % nativeVersion,
       "org.scala-native" %%% "javalib"   % nativeVersion,
       "org.scala-native" %%% "scalalib"  % nativeVersion
     ),
     addCompilerPlugin(
-      "org.scala-native" % "nscplugin" % nativeVersion cross CrossVersion.full)
-  )
-
-  lazy val scopedSettings = Seq(
+      "org.scala-native" % "nscplugin" % nativeVersion cross CrossVersion.full),
     nativeWarnOldJVM := {
       val logger = nativeLogger.value
       Try(Class.forName("java.util.function.Function")).toOption match {
@@ -124,12 +123,12 @@ object ScalaNativePluginInternal {
     },
     nativeClang := {
       val clang = discover("clang", clangVersions)
-      checkThatClangIsRecentEnough(clang)
+        checkThatClangIsRecentEnough(clang)
       clang
     },
     nativeClangPP := {
       val clang = discover("clang++", clangVersions)
-      checkThatClangIsRecentEnough(clang)
+        checkThatClangIsRecentEnough(clang)
       clang
     },
     nativeCompileOptions := {
@@ -158,25 +157,15 @@ object ScalaNativePluginInternal {
       val logger = nativeLogger.value
       val cwd    = nativeWorkdir.value
       val clang  = nativeClang.value
-      // Use non-standard extension to not include the ll file when linking (#639)
-      val targetc  = cwd / "target" / "c.probe"
-      val targetll = cwd / "target" / "ll.probe"
       val compilec =
-        Seq(abs(clang),
-            "-S",
-            "-xc",
-            "-emit-llvm",
-            "-o",
-            abs(targetll),
-            abs(targetc))
+        Seq(abs(clang), "-S", "-emit-llvm", "-x", "c", "-o", "-", "-")
+      val probe = new ByteArrayInputStream("int probe;".getBytes("UTF-8"))
       def fail =
         throw new MessageOnlyException("Failed to detect native target.")
 
-      IO.write(targetc, "int probe;")
       logger.running(compilec)
-      val exit = Process(compilec, cwd) ! logger
-      if (exit != 0) fail
-      IO.readLines(targetll)
+      val lines = Process(compilec, cwd) #< probe lines_! logger
+      lines
         .collectFirst {
           case line if line.startsWith("target triple") =>
             line.split("\"").apply(1)
@@ -185,13 +174,13 @@ object ScalaNativePluginInternal {
     },
     nativeMode := "debug",
     artifactPath in nativeLink := {
-      crossTarget.value / (moduleName.value + "-out")
+      (crossTarget in Compile).value / (moduleName.value + "-out")
     },
     nativeLinkerReporter := tools.LinkerReporter.empty,
     nativeOptimizerReporter := tools.OptimizerReporter.empty,
     nativeOptimizerDriver := tools.OptimizerDriver(nativeConfig.value),
     nativeWorkdir := {
-      val workdir = crossTarget.value / "native"
+      val workdir = (Keys.crossTarget in Compile).value / "native"
       IO.delete(workdir)
       IO.createDirectory(workdir)
       workdir
@@ -246,7 +235,7 @@ object ScalaNativePluginInternal {
             logger.running(compilec)
             val result = Process(compilec, cwd) ! logger
             if (result != 0) {
-              sys.error("Failed to compile native library runtime code.")
+              println("Failed to compile native library runtime code.")
             }
         }
       }
@@ -254,10 +243,10 @@ object ScalaNativePluginInternal {
       lib
     },
     nativeConfig := {
-      val mainClass = selectMainClass.value.getOrElse(
+      val mainClass = (selectMainClass in Compile).value.getOrElse(
         throw new MessageOnlyException("No main class detected.")
       )
-      val classpath = fullClasspath.value.map(_.data)
+      val classpath = (fullClasspath in Compile).value.map(_.data)
       val entry     = nir.Global.Top(mainClass.toString + "$")
       val cwd       = nativeWorkdir.value
 
@@ -376,7 +365,7 @@ object ScalaNativePluginInternal {
       nativeWarnOldJVM.value
       // We explicitly mention all of the steps in the pipeline
       // although only the last one is strictly necessary.
-      compile.value
+      (compile in Compile).value
       nativeLinkNIR.value
       nativeOptimizeNIR.value
       nativeGenerateLL.value
@@ -421,7 +410,7 @@ object ScalaNativePluginInternal {
       else if (binaryName == "clang++") "CLANGPP"
       else binaryName
 
-    sys.env.get(s"${envName}_PATH") match {
+      sys.env.get(s"${envName}_PATH") match {
       case Some(path) => file(path)
       case None => {
         val binaryNames = binaryVersions.flatMap {

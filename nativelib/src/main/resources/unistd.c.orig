@@ -1,13 +1,8 @@
-<<<<<<< HEAD
-#ifndef _WIN32
-    #include <unistd.h>
-#else
-    #include "os_win_unistd.h"
-#endif
-=======
 #include <unistd.h>
+<<<<<<< HEAD
 #include "types.h"
->>>>>>> refs/remotes/scala-native/master
+=======
+>>>>>>> parent of 8efaaf9a... Naive initial windows support
 
 int scalanative_f_ok() { return F_OK; }
 
