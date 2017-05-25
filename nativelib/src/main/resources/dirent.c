@@ -1,8 +1,4 @@
-#ifndef _WIN32
-  #include <dirent.h>
-#else
-  #include "os_win_dirent.h"
-#endif
+#include <dirent.h>
 #include <string.h>
 
 #define NAME_MAX 255
@@ -17,12 +13,7 @@ DIR *scalanative_opendir(const char *name) { return opendir(name); }
 void scalanative_dirent_init(struct dirent *dirent,
                              struct scalanative_dirent *my_dirent) {
   my_dirent->d_ino = dirent->d_ino;
-#ifndef _WIN32
   strncpy(my_dirent->d_name, dirent->d_name, NAME_MAX);
-#else
-  int nameLength = strlen(dirent->d_name);
-  strncpy_s(my_dirent->d_name, nameLength, dirent->d_name, nameLength);
-#endif
   my_dirent->d_name[NAME_MAX] = '\0';
 }
 

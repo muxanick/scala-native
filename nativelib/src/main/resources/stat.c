@@ -1,9 +1,5 @@
 #include "types.h"
-#ifndef _WIN32
-  #include <sys/stat.h>
-#else
-  #include "os_win_stat.h"
-#endif
+#include <sys/stat.h>
 
 // We don't use the "standard" types such as `dev_t` for instance
 // because these have different sizes on eg. Linux and OSX. We use the
@@ -84,22 +80,10 @@ int scalanative_lstat(char *path, struct scalanative_stat *buf) {
   }
 }
 
-int scalanative_mkdir(char *path, mode_t mode)
-{
-#ifdef _WIN32
-  return _mkdir(path);
-#else
-  return mkdir(path, mode);
-#endif
-  
-}
+int scalanative_mkdir(char *path, mode_t mode) { return mkdir(path, mode); }
 
 int scalanative_chmod(char *pathname, mode_t mode) {
-#ifdef _WIN32
-  return pchmod(pathname, mode);
-#else
   return chmod(pathname, mode);
-#endif
 }
 
 int scalanative_fchmod(int fd, mode_t mode) { return fchmod(fd, mode); }
