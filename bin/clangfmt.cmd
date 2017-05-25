@@ -1,1 +1,0 @@
-for /R %%i in (*.c;*.cpp;*.h) do C:\Projects\LLVM-BIN_4.0\bin\clang-format.exe -style=file -i %%i
