@@ -10,8 +10,7 @@ param (
     [string]$testMode
 )
 
-$SCALAFMT_VERSION="1.0.0-RC1"
-#"0.6.8"
+$SCALAFMT_VERSION="0.6.8"
 $SN = "$env:USERPROFILE\.scala-native"
 $SCALAFMT="$SN\.scalafmt-$SCALAFMT_VERSION.jar"
 $COURSIER="$PSScriptRoot\coursier.ps1"
