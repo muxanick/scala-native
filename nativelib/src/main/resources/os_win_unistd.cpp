@@ -3,11 +3,9 @@
 #include "os_win_dirent.h"
 #include <exception>
 #include <cstdio>
-#include <../ucrt/corecrt_io.h>
-#include <../ucrt/direct.h>
-#include <../ucrt/fcntl.h>
 #include "os_win_descriptor_guard.h"
 #include "os_win_winsock2.h"
+#include "os_win_fcntl.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -179,7 +177,7 @@ extern "C" int __imp_open(const char *pathname, int flags, mode_t mode) {
     } else {
         const auto fileMode =
             (attributes != -1) ? getAccessMode(fullPath.data()) : mode;
-        if (((flags & _O_WRONLY) || (flags & _O_RDWR)) &&
+        if (((flags & O_WRONLY) || (flags & O_RDWR)) &&
             !(fileMode & S_IWUSR)) {
             err = EACCES;
         } else {
