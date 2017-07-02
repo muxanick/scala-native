@@ -177,8 +177,7 @@ extern "C" int __imp_open(const char *pathname, int flags, mode_t mode) {
     } else {
         const auto fileMode =
             (attributes != -1) ? getAccessMode(fullPath.data()) : mode;
-        if (((flags & O_WRONLY) || (flags & O_RDWR)) &&
-            !(fileMode & S_IWUSR)) {
+        if (((flags & O_WRONLY) || (flags & O_RDWR)) && !(fileMode & S_IWUSR)) {
             err = EACCES;
         } else {
             err = _sopen_s(&fildes, fullPath.data(), flags, _SH_DENYNO,
