@@ -473,7 +473,7 @@ object Show {
         str("def ")
         global_(name)
         str(" : ")
-        type_(ty)        
+        type_(ty)
       case Defn.Define(attrs, name, ty, insts, di) =>
         attrs_(attrs)
         str("def ")

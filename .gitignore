@@ -5,7 +5,7 @@ _build/
 *.ppm
 .idea
 _build/
-bin/.coursier
+bin/.coursier*
 bin/.scalafmt*
 sbt-crossproject/
 .vscode/launch.json
@@ -14,3 +14,12 @@ sbt-crossproject/
 ensime-langserver.log
 pc.stdout.log
 *.swp
+CMakeLists.txt
+cmake-build-debug/
+*.iml
+pc.stdout.log
+*.TMP
+*.orig
+*.etl
+*.etl.NGENPDB
+.vscode/

@@ -1,7 +1,5 @@
 package java.util
 
-import scala.collection.JavaConversions._
-
 import scala.annotation.tailrec
 
 abstract class AbstractList[E] protected ()
@@ -13,6 +11,10 @@ abstract class AbstractList[E] protected ()
     true
   }
 
+  // tests/compile:nativeLinkNIR fails without this re-declaration (issue: #375)
+  // cannot link: @java.util.AbstractList::get_i32_java.lang.Object
+  def get(index: Int): E
+
   def set(index: Int, element: E): E =
     throw new UnsupportedOperationException
 
@@ -22,8 +24,16 @@ abstract class AbstractList[E] protected ()
   def remove(index: Int): E =
     throw new UnsupportedOperationException
 
-  def indexOf(o: Any): Int =
-    iterator().indexWhere(_ === o)
+  def indexOf(o: Any): Int = {
+    var idx  = -1
+    var i    = 0
+    val iter = listIterator()
+    while (idx == -1 && iter.hasNext()) {
+      if (iter.next() === o) idx = i
+      i += 1
+    }
+    idx
+  }
 
   def lastIndexOf(o: Any): Int = {
     @tailrec
@@ -40,8 +50,13 @@ abstract class AbstractList[E] protected ()
 
   def addAll(index: Int, c: Collection[_ <: E]): Boolean = {
     checkIndexOnBounds(index)
-    for ((elem, i) <- c.iterator().zipWithIndex) add(index + i, elem)
-    c.nonEmpty
+    var i    = index
+    val iter = c.iterator()
+    while (iter.hasNext()) {
+      add(i, iter.next())
+      i += 1
+    }
+    !c.isEmpty
   }
 
   def iterator(): Iterator[E] =
@@ -104,22 +119,37 @@ abstract class AbstractList[E] protected ()
     } else {
       o match {
         case o: List[_] =>
-          val oIter = o.listIterator
-          this.forall(oIter.hasNext && _ === oIter.next()) && !oIter.hasNext
+          val oIter  = o.listIterator
+          val iter   = listIterator
+          var result = true
+
+          while (result && iter.hasNext() && oIter.hasNext()) {
+            result = iter.next() === oIter.next()
+          }
+
+          result && !iter.hasNext() && !oIter.hasNext()
         case _ => false
       }
     }
   }
 
   override def hashCode(): Int = {
-    this.foldLeft(1) { (prev, elem) =>
-      31 * prev + (if (elem == null) 0 else elem.hashCode)
+    var hash = 0
+    val iter = listIterator()
+    while (iter.hasNext()) {
+      val elem = iter.next()
+      hash = 31 * hash + (if (elem == null) 0 else elem.hashCode)
     }
+    hash
   }
 
   protected def removeRange(fromIndex: Int, toIndex: Int): Unit = {
+    var i    = 0
     val iter = listIterator(fromIndex)
-    iter.take(toIndex - fromIndex).foreach(_ => iter.remove())
+    while (iter.hasNext && i <= toIndex) {
+      iter.remove()
+      i += 1
+    }
   }
 
   protected[this] def checkIndexInBounds(index: Int): Unit = {

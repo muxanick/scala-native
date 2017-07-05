@@ -1,7 +1,8 @@
 package scala.scalanative
 
+import scala.language.experimental.macros
 import java.nio.charset.Charset
-import runtime.{undefined, GC}
+import scalanative.runtime.undefined
 
 package object native {
 
@@ -71,6 +72,9 @@ package object native {
   /** The C/C++ 'size_t' type. */
   type CSize = Word
 
+  /** The C/C++ 'ssize_t' type. */
+  type CSSize = Word
+
   /** The C/C++ 'ptrdiff_t' type. */
   type CPtrDiff = Long
 
@@ -80,11 +84,29 @@ package object native {
   /** The C 'sizeof' operator. */
   def sizeof[T](implicit tag: Tag[T]): CSize = undefined
 
-  /** Stack allocate a value of given type. */
+  /** Heap allocate and zero-initialize a value
+   *  using current implicit allocator.
+   */
+  def alloc[T](implicit tag: Tag[T], z: Zone): Ptr[T] =
+    macro MacroImpl.alloc1[T]
+
+  /** Heap allocate and zero-initialize n values
+   *  using current implicit allocator.
+   */
+  def alloc[T](n: CSize)(implicit tag: Tag[T], z: Zone): Ptr[T] =
+    macro MacroImpl.allocN[T]
+
+  /** Stack allocate a value of given type.
+   *
+   *  Note: unlike alloc, the memory is not zero-initialized.
+   */
   def stackalloc[T](implicit tag: Tag[T]): Ptr[T] = undefined
 
-  /** Stack allocate n values of given type. */
-  def stackalloc[T](n: Int)(implicit tag: Tag[T]): Ptr[T] = undefined
+  /** Stack allocate n values of given type.
+   *
+   *  Note: unlike alloc, the memory is not zero-initialized.
+   */
+  def stackalloc[T](n: CSize)(implicit tag: Tag[T]): Ptr[T] = undefined
 
   /** Used as right hand side of external method and field declarations. */
   def extern: Nothing = undefined
@@ -147,11 +169,17 @@ package object native {
     new String(bytes, charset)
   }
 
-  /** Convert a java.lang.String to a CString using given charset. */
-  def toCString(str: String,
-                charset: Charset = Charset.defaultCharset()): CString = {
+  /** Convert a java.lang.String to a CString using default charset and
+   *  given allocator.
+   */
+  def toCString(str: String)(implicit z: Zone): CString =
+    toCString(str, Charset.defaultCharset())(z)
+
+  /** Convert a java.lang.String to a CString using given charset and allocator.
+   */
+  def toCString(str: String, charset: Charset)(implicit z: Zone): CString = {
     val bytes = str.getBytes(charset)
-    val cstr  = GC.malloc_atomic(bytes.length + 1).cast[Ptr[Byte]]
+    val cstr  = z.alloc(bytes.length + 1)
 
     var c = 0
     while (c < bytes.length) {
@@ -162,5 +190,34 @@ package object native {
     !(cstr + c) = 0.toByte
 
     cstr
+  }
+
+  private object MacroImpl {
+    import scala.reflect.macros.blackbox.Context
+
+    def alloc1[T: c.WeakTypeTag](c: Context)(tag: c.Tree, z: c.Tree): c.Tree = {
+      import c.universe._
+      val T         = weakTypeOf[T]
+      val size, ptr = TermName(c.freshName())
+      q"""{
+        val $size = _root_.scala.scalanative.native.sizeof[$T]($tag)
+        val $ptr = $z.alloc($size)
+        _root_.scala.scalanative.native.string.memset($ptr, 0, $size)
+        $ptr.cast[Ptr[$T]]
+      }"""
+    }
+
+    def allocN[T: c.WeakTypeTag](c: Context)(n: c.Tree)(tag: c.Tree,
+                                                        z: c.Tree): c.Tree = {
+      import c.universe._
+      val T         = weakTypeOf[T]
+      val size, ptr = TermName(c.freshName())
+      q"""{
+        val $size = _root_.scala.scalanative.native.sizeof[$T]($tag) * $n
+        val $ptr = $z.alloc($size)
+        _root_.scala.scalanative.native.string.memset($ptr, 0, $size)
+        $ptr.cast[Ptr[$T]]
+      }"""
+    }
   }
 }

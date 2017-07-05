@@ -39,7 +39,10 @@ object Defn {
                           di: DebugInfo)
       extends Defn
 
-  // Compile unit                          
-  final case class CompileUnit(attrs: Attrs, name: Global, filename:String, dicu: DebugInfo.CompileUnit)
+  // Compile unit
+  final case class CompileUnit(attrs: Attrs,
+                               name: Global,
+                               filename: String,
+                               dicu: DebugInfo.CompileUnit)
       extends Defn
 }

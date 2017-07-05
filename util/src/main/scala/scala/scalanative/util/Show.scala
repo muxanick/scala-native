@@ -29,7 +29,7 @@ final class ShowBuilder {
     sb.insert(position.pos, localsb.toString)
   }
 
-  def addDebugInfoLine(value:Any): Unit = {
+  def addDebugInfoLine(value: Any): Unit = {
     sbDebugInfo.append(value.toString)
     sbDebugInfo.append("\n")
   }

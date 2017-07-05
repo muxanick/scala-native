@@ -91,15 +91,15 @@ object Tags {
 
   final val Defn = Conv + 32
 
-  final val VarDefn     = 1 + Defn
-  final val ConstDefn   = 1 + VarDefn
-  final val DeclareDefn = 1 + ConstDefn
-  final val DefineDefn  = 1 + DeclareDefn
-  final val StructDefn  = 1 + DefineDefn
-  final val TraitDefn   = 1 + StructDefn
-  final val ClassDefn   = 1 + TraitDefn
-  final val ModuleDefn  = 1 + ClassDefn
-  final val CompileUnitDefn  = 1 + ModuleDefn
+  final val VarDefn         = 1 + Defn
+  final val ConstDefn       = 1 + VarDefn
+  final val DeclareDefn     = 1 + ConstDefn
+  final val DefineDefn      = 1 + DeclareDefn
+  final val StructDefn      = 1 + DefineDefn
+  final val TraitDefn       = 1 + StructDefn
+  final val ClassDefn       = 1 + TraitDefn
+  final val ModuleDefn      = 1 + ClassDefn
+  final val CompileUnitDefn = 1 + ModuleDefn
 
   // Control-flow ops
 
@@ -214,19 +214,13 @@ object Tags {
   final val StringVal = 1 + ConstVal
 
   final val tagEnum = new TagEnum(Val + 31)
-  final val DbgInf,
-            IdRefDbgInf,
-            CompileUnitDbgInf,
-            FileDbgInf,
-            InfoDbgInf,
-            SubprogramDbgInf,
-            LocationDbgInf   = tagEnum()
+  final val DbgInf, IdRefDbgInf, CompileUnitDbgInf, FileDbgInf, InfoDbgInf,
+  SubprogramDbgInf, LocationDbgInf = tagEnum()
 }
 
-final class TagEnum(i: Int)
-{
+final class TagEnum(i: Int) {
   private var id = new java.util.concurrent.atomic.AtomicInteger(i)
-    def apply():Int = {
-        id.getAndIncrement()
-    }
+  def apply(): Int = {
+    id.getAndIncrement()
+  }
 }

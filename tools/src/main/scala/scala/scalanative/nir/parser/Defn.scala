@@ -49,13 +49,13 @@ object Defn extends Base[nir.Defn] {
           nir.Defn.Class(attrs, name, inherits.headOption, inherits.tail)
       })
   val Module =
-    P(
-      Attrs.parser ~ "module" ~ Global.parser ~ (":" ~ Global.parser.rep(
-        sep = ",")).? map {
-        case (attrs, name, None) => nir.Defn.Module(attrs, name, None, Seq(), null)
-        case (attrs, name, Some(inherits)) =>
-          nir.Defn.Module(attrs, name, inherits.headOption, inherits.tail, null)
-      })
+    P(Attrs.parser ~ "module" ~ Global.parser ~ (":" ~ Global.parser.rep(
+      sep = ",")).? map {
+      case (attrs, name, None) =>
+        nir.Defn.Module(attrs, name, None, Seq(), null)
+      case (attrs, name, Some(inherits)) =>
+        nir.Defn.Module(attrs, name, inherits.headOption, inherits.tail, null)
+    })
   override val parser: P[nir.Defn] =
     Var | Const | Define | Declare | Struct | Trait | Class | Module
 }

@@ -34,9 +34,12 @@ final class BinarySerializer(buffer: ByteBuffer) {
       pos
     }
 
-    val dicu = defns.collectFirst {
-      case Defn.CompileUnit(_, _, _, di) => di.asInstanceOf[DebugInfo.CompileUnit].dicu
-    }.getOrElse(null)
+    val dicu = defns
+      .collectFirst {
+        case Defn.CompileUnit(_, _, _, di) =>
+          di.asInstanceOf[DebugInfo.CompileUnit].dicu
+      }
+      .getOrElse(null)
 
     DebugInfo.serialize(buffer)(dicu)
 
@@ -212,7 +215,7 @@ final class BinarySerializer(buffer: ByteBuffer) {
       putInt(T.DeclareDefn)
       putAttrs(attrs)
       putGlobal(name)
-      putType(ty)      
+      putType(ty)
 
     case Defn.Define(attrs, name, ty, insts, di) =>
       putInt(T.DefineDefn)

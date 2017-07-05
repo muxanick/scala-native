@@ -1,5 +1,10 @@
 #include <stdlib.h>
+#ifndef _WIN32
 #include <sys/mman.h>
+#else
+#include "../../os_win_mman.h"
+void scalanative_safepoint_init();
+#endif
 
 // Darwin defines MAP_ANON instead of MAP_ANONYMOUS
 #if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
@@ -9,7 +14,7 @@
 // Dummy GC that maps chunks of 4GB and allocates but never frees.
 
 // Map 4GB
-#define CHUNK (4 * 1024 * 1024 * 1024L)
+#define CHUNK ((unsigned long long)4 * 1024 * 1024 * 1024L)
 // Allow read and write
 #define DUMMY_GC_PROT (PROT_READ | PROT_WRITE)
 // Map private anonymous memory, and prevent from reserving swap
@@ -21,37 +26,35 @@
 void *current = 0;
 void *end = 0;
 
-void scalanative_safepoint_init();
-
 void scalanative_init() {
     current = mmap(NULL, CHUNK, DUMMY_GC_PROT, DUMMY_GC_FLAGS, DUMMY_GC_FD,
                    DUMMY_GC_FD_OFFSET);
     end = current + CHUNK;
-    scalanative_safepoint_init();
 }
 
-void *scalanative_alloc_raw(size_t size) {
+void *scalanative_alloc(void *info, size_t size) {
     size = size + (8 - size % 8);
-    if (current != 0 && current + size < end) {
-        void *alloc = current;
+    if (current + size < end) {
+        void **alloc = current;
+        *alloc = info;
         current += size;
         return alloc;
     } else {
         scalanative_init();
-        return scalanative_alloc_raw(size);
+        return scalanative_alloc(info, size);
     }
 }
 
-void *scalanative_alloc_raw_atomic(size_t size) {
-    return scalanative_alloc_raw(size);
+void *scalanative_alloc_small(void *info, size_t size) {
+    return scalanative_alloc(info, size);
 }
 
-void *scalanative_alloc(void *info, size_t size) {
-    void **alloc = (void **)scalanative_alloc_raw(size);
-    *alloc = info;
-    return (void *)alloc;
+void *scalanative_alloc_large(void *info, size_t size) {
+    return scalanative_alloc(info, size);
+}
+
+void *scalanative_alloc_atomic(void *info, size_t size) {
+    return scalanative_alloc(info, size);
 }
 
 void scalanative_collect() {}
-
-void scalanative_safepoint() {}
