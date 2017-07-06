@@ -226,7 +226,11 @@ int __attribute__((noinline)) scalanative_misc_greenthreads_fork(scalanative_mis
         p->st = scalanative_misc_greenthreads_gt::Ready;
         p->id = id;
         p->f = (scalanative_misc_greenthreads_func)__builtin_return_address(0);
-        long long** frameAddress = (long long**)((char*)__builtin_frame_address(0));
+        long long** frameAddress = (long long**)((char*)__builtin_frame_address(0)
+#ifdef _WIN32
+        +0x50
+#endif
+        );
         long long* returnAddress = (long long*)__builtin_extract_return_addr(__builtin_return_address(0));
         while (frameAddress[0] != returnAddress)
         {
