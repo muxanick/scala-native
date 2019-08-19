@@ -170,7 +170,8 @@ object Discover {
             Seq(s"$binaryName$major$minor", s"$binaryName-$major${sep}$minor")
         } :+ binaryName
 
-        Process("which" +: binaryNames)
+        val isWindows = System.getProperty("os.name").contains("indows")
+        Process((if (isWindows) "where" else "which") +: binaryNames)
           .lines_!(silentLogger())
           .map(Paths.get(_))
           .headOption
