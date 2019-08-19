@@ -8,7 +8,7 @@ import scalanative.annotation.stub
 import scalanative.unsigned._
 import scalanative.unsafe._
 import scalanative.libc._, stdlib._, stdio._, string._
-//import scalanative.nio.fs.FileHelpers
+import scala.scalanative.cpp.filesystem.Filesystem
 import scalanative.runtime.{DeleteOnExit, Platform}
 
 class File(_path: String) extends Serializable with Comparable[File] {
@@ -77,8 +77,7 @@ class File(_path: String) extends Serializable with Comparable[File] {
   }
 
   def exists(): Boolean = {
-    throw new IOException("Not implemented")
-    false
+    Filesystem.exists(properPath)
   }
 
   def toPath(): Path =
@@ -152,15 +151,9 @@ class File(_path: String) extends Serializable with Comparable[File] {
   def isAbsolute(): Boolean =
     File.isAbsolute(path)
 
-  def isDirectory(): Boolean = {
-    throw new IOException("Not implemented")
-    false
-  }
+  def isDirectory(): Boolean = Filesystem.is_directory(properPath)
 
-  def isFile(): Boolean = {
-    throw new IOException("Not implemented")
-    false
-  }
+  def isFile(): Boolean = Filesystem.is_file(properPath)
 
   def isHidden(): Boolean =
     getName().startsWith(".")
@@ -189,8 +182,10 @@ class File(_path: String) extends Serializable with Comparable[File] {
     list(FilenameFilter.allPassFilter)
 
   def list(filter: FilenameFilter): Array[String] = {
-    throw new IOException("Not implemented")
-    null
+    Filesystem.directory_iterator(properPath).filter({ x =>
+      val p = x.path
+      filter.accept(new File(p.parent_path.string), p.filename.string)
+    }).map(_.path.filename.string).toArray
   }
 
   def listFiles(): Array[File] =
@@ -272,8 +267,7 @@ object File {
     Integer.parseInt(v, 8).toUInt
 
   private def getUserDir(): String = {
-    throw new IOException("Not implemented")
-    ""
+    System.getProperty("user.dir")
   }
 
   /** The purpose of this method is to take a path and fix the slashes up. This

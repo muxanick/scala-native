@@ -3,7 +3,7 @@ package java.lang
 import java.io._
 import java.util.{Collections, HashMap, Map, Properties}
 import scala.scalanative.unsafe._
-import scala.scalanative.runtime.{time, Platform, GC, Intrinsics}
+import scala.scalanative.runtime.{time, Platform, GC, Intrinsics, RawPtr}
 
 final class System private ()
 
@@ -39,11 +39,7 @@ object System {
     if (Platform.isWindows) {
       sysProps.setProperty("file.separator", "\\")
       sysProps.setProperty("path.separator", ";")
-      val userLang    = fromCString(Platform.windowsGetUserLang())
-      val userCountry = fromCString(Platform.windowsGetUserCountry())
-      sysProps.setProperty("user.language", userLang)
-      sysProps.setProperty("user.country", userCountry)
-
+      sysProps.setProperty("user.home", getenv("USERPROFILE"))
     } else {
       sysProps.setProperty("file.separator", "/")
       sysProps.setProperty("path.separator", ":")
@@ -59,22 +55,14 @@ object System {
         sysProps.setProperty("user.country", userCountry)
       }
       sysProps.setProperty("user.home", getenv("HOME"))
-      val buf = stackalloc[scala.Byte](1024)
-      /*unistd.getcwd(buf, 1024) match {
-        case null =>
-        case b    => sysProps.setProperty("user.dir", fromCString(b))
-      }*/
     }
 
     sysProps
   }
 
-  var in: InputStream =
-    new FileInputStream(FileDescriptor.in)
-  var out: PrintStream =
-    new PrintStream(new FileOutputStream(FileDescriptor.out))
-  var err: PrintStream =
-    new PrintStream(new FileOutputStream(FileDescriptor.err))
+  var in: InputStream  = SystemImpl.std_in()
+  var out: PrintStream = new PrintStream(SystemImpl.std_out())
+  var err: PrintStream = new PrintStream(SystemImpl.std_err())
 
   private val systemProperties = loadProperties()
   Platform.setOSProps(new CFuncPtr2[CString, CString, Unit] {
@@ -118,35 +106,53 @@ object System {
 
   def gc(): Unit = GC.collect()
 
-  private lazy val envVars: Map[String, String] = {
-    // workaround since `while(ptr(0) != null)` causes segfault
-    def isDefined(ptr: Ptr[CString]): Boolean = {
-      val s: CString = ptr(0)
-      s != null
+  private lazy val envVars: Map[String, String] = SystemImpl.loadAllEnv()
+}
+
+private object SystemImpl {
+  def loadAllEnv(): Map[String, String] = {
+    val envmap = new HashMap[String, String](Platform.getAllEnv(null, null))
+    val mapPtr = Intrinsics.castObjectToRawPtr(envmap)
+    Platform.getAllEnv(mapPtr, new CFuncPtr3[RawPtr, CString, CString, Unit] {
+      def apply(obj: RawPtr, key: CString, value: CString): Unit = {
+        val emap = Intrinsics.castRawPtrToObject(obj).asInstanceOf[HashMap[String, String]]
+        val valueOrEmpty: String = if (value != null && value(0) != 0) fromCString(value) else ""
+        emap.put(fromCString(key), valueOrEmpty)
+      }
+    })
+    Collections.unmodifiableMap(envmap)
+  }
+
+  import scala.scalanative.libc.stdio
+  import scala.scalanative.runtime
+
+  def std_in(): InputStream = new InputStream {
+    def read(): Int = {
+      stdio.fgetc(stdio.stdin)
     }
+    def read(b: Array[Byte], off: Int, len: Int): Int = {
+      val buf = b.asInstanceOf[runtime.ByteArray].at(off)
+      stdio.fread(buf, len, 1, stdio.stdin).toInt
+    }
+  }
 
-    // Count to preallocate the map
-    var size    = 0
-    /*var sizePtr = unistd.environ
-    while (isDefined(sizePtr)) {
-      size += 1
-      sizePtr += 1
-    }*/
+  def std_out(): OutputStream = new OutputStream {
+    def write(b: Int): Unit = {
+      stdio.fputc(b, stdio.stdout)
+    }
+    def write(b: Array[Byte], off: Int, len: Int): Unit = {
+      val buf = b.asInstanceOf[runtime.ByteArray].at(off)
+      stdio.fwrite(buf, len, 1, stdio.stdout).toInt
+    }
+  }
 
-    val map               = new HashMap[String, String](size)
-    /*var ptr: Ptr[CString] = unistd.environ
-    while (isDefined(ptr)) {
-      val variable = fromCString(ptr(0))
-      val name     = variable.takeWhile(_ != '=')
-      val value =
-        if (name.length < variable.length)
-          variable.substring(name.length + 1, variable.length)
-        else
-          ""
-      map.put(name, value)
-      ptr = ptr + 1
-    }*/
-
-    Collections.unmodifiableMap(map)
+  def std_err(): OutputStream = new OutputStream {
+    def write(b: Int): Unit = {
+      stdio.fputc(b, stdio.stderr)
+    }
+    def write(b: Array[Byte], off: Int, len: Int): Unit = {
+      val buf = b.asInstanceOf[runtime.ByteArray].at(off)
+      stdio.fwrite(buf, len, 1, stdio.stderr)
+    }
   }
 }

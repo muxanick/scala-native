@@ -63,7 +63,7 @@ object Build {
     val unpackedLib = LLVM.unpackNativelib(config.nativelib, config.workdir)
     val objectFiles = config.logger.time("Compiling to native code") {
       val nativelibConfig =
-        config.withCompileOptions("-O2" +: config.compileOptions)
+        config.withCompileOptions("-O0" +: config.compileOptions)
       LLVM.compileNativelib(nativelibConfig, linked, unpackedLib)
       LLVM.compile(config, generated)
     }

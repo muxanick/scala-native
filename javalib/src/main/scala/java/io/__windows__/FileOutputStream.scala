@@ -45,7 +45,7 @@ class FileOutputStream(fd: FileDescriptor, file: Option[File] = None)
 
     if (writeCount < 0) {
       // negative value (typically -1) indicates that write failed
-      throw new IOException(file.fold("")(_.toString))//, errno.errno)
+      throw new IOException(file.fold("")(_.toString)) //, errno.errno)
     }
   }
 
@@ -57,5 +57,6 @@ class FileOutputStream(fd: FileDescriptor, file: Option[File] = None)
 }
 
 object FileOutputStream {
-  private def fileDescriptor(file: File, append: Boolean) = FileDescriptor.openWriteOnly(file, append)    
+  private def fileDescriptor(file: File, append: Boolean) =
+    FileDescriptor.openWriteOnly(file, append)
 }

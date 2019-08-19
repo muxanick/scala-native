@@ -121,8 +121,8 @@ lazy val setUpTestingCompiler = Def.task {
   val nativelibjar = (Keys.`package` in nativelib in Compile).value
   val auxlibjar    = (Keys.`package` in auxlib in Compile).value
   val clibjar      = (Keys.`package` in clib in Compile).value
-  val cpplibjar      = (Keys.`package` in cpplib in Compile).value
-  val winlibjar      = (Keys.`package` in winlib in Compile).value
+  val cpplibjar    = (Keys.`package` in cpplib in Compile).value
+  val winlibjar    = (Keys.`package` in winlib in Compile).value
   val posixlibjar  = (Keys.`package` in posixlib in Compile).value
   val scalalibjar  = (Keys.`package` in scalalib in Compile).value
   val javalibjar   = (Keys.`package` in javalib in Compile).value
@@ -134,7 +134,14 @@ lazy val setUpTestingCompiler = Def.task {
   sys.props("scalanative.testingcompiler.cp") =
     (testingcompilercp :+ testingcompilerjar) map (_.getAbsolutePath) mkString pathSeparator
   sys.props("scalanative.nativeruntime.cp") =
-    Seq(nativelibjar, auxlibjar, clibjar, cpplibjar, posixlibjar, winlib, scalalibjar, javalibjar) mkString pathSeparator
+    Seq(nativelibjar,
+        auxlibjar,
+        clibjar,
+        cpplibjar,
+        posixlibjar,
+        winlib,
+        scalalibjar,
+        javalibjar) mkString pathSeparator
   sys.props("scalanative.nativelib.dir") =
     ((crossTarget in Compile).value / "nativelib").getAbsolutePath
 }
@@ -464,10 +471,16 @@ lazy val javalib =
             !path.endsWith(".class")
         }
       },
-      excludeFilter in (Compile, unmanagedSources) := {if (isWindows) "*posix*" else "*windows*"},
-      excludeFilter in (Test, unmanagedSources) := {if (isWindows) "*posix*" else "*windows*"},
+      excludeFilter in (Compile, unmanagedSources) := {
+        if (isWindows) "*posix*" else "*windows*"
+      },
+      excludeFilter in (Test, unmanagedSources) := {
+        if (isWindows) "*posix*" else "*windows*"
+      },
       publishLocal := publishLocal
-        .dependsOn(publishLocal in nativelib, publishLocal in posixlib, publishLocal in winlib)
+        .dependsOn(publishLocal in nativelib,
+                   publishLocal in posixlib,
+                   publishLocal in winlib)
         .value
     )
     .dependsOn(nativelib, posixlib, winlib)
@@ -585,7 +598,21 @@ lazy val sandbox =
     .settings(
       // nativeOptimizerReporter := OptimizerReporter.toDirectory(
       //   crossTarget.value),
-      scalaVersion := libScalaVersion
+      scalaVersion := libScalaVersion,
+      nativeLinkStubs := true
+    )
+    .enablePlugins(ScalaNativePlugin)
+
+lazy val sandbox2 =
+  project
+    .in(file("sandbox2"))
+    .settings(projectSettings)
+    .settings(noPublishSettings)
+    .settings(
+      // nativeOptimizerReporter := OptimizerReporter.toDirectory(
+      //   crossTarget.value),
+      scalaVersion := libScalaVersion,
+      nativeLinkStubs := true
     )
     .enablePlugins(ScalaNativePlugin)
 

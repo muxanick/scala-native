@@ -1,6 +1,7 @@
 package java.util.stream
 
 import java.util.Iterator
+import java.util.ArrayList
 import java.util.function.{Function, Predicate}
 import scala.collection.immutable.{Stream => SStream}
 
@@ -25,6 +26,16 @@ class WrappedScalaStream[T](private val underlying: SStream[T],
 
   override def filter(pred: Predicate[_ >: T]): Stream[T] =
     new WrappedScalaStream(underlying.filter(pred.test), closeHandler)
+
+  override def toList: java.util.List[T] = {
+    val array = new ArrayList[T]
+    val it = iterator()
+    while (it.hasNext())
+    {
+      array.add(it.next())
+    }
+    array.asInstanceOf[java.util.List[T]]
+  }
 }
 
 object WrappedScalaStream {
@@ -91,6 +102,16 @@ private final class CompositeStream[T](substreams: Seq[Stream[T]],
   override def filter(pred: Predicate[_ >: T]): Stream[T] = {
     val newStreams: Seq[Stream[T]] = substreams.map(s => s.filter(pred))
     new CompositeStream(newStreams, closeHandler)
+  }
+
+  override def toList: java.util.List[T] = {
+    val array = new ArrayList[T]
+    val it = iterator()
+    while (it.hasNext())
+    {
+      array.add(it.next())
+    }
+    array.asInstanceOf[java.util.List[T]]
   }
 }
 

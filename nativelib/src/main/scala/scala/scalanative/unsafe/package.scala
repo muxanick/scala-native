@@ -138,17 +138,17 @@ package object unsafe {
   }
 
   /** Convert a CString to a String using given charset. */
-  def fromCString(cstr: CString,
-                  charset: Charset = Charset.defaultCharset()): String = {
+  def fromCString(cstr: CString, charset: Charset = Charset.defaultCharset()): String = {
     val len   = libc.strlen(cstr).toInt
+    fromCStringFast(cstr, len, charset)
+  }
+
+  def fromCStringFast(cstr: CString,
+                      len: Int,
+                      charset: Charset = Charset.defaultCharset()): String = {
     val bytes = new Array[Byte](len)
-
-    var c = 0
-    while (c < len) {
-      bytes(c) = !(cstr + c)
-      c += 1
-    }
-
+    val buf = bytes.asInstanceOf[runtime.ByteArray].at(0)
+    libc.memcpy(buf.asInstanceOf[Ptr[_]].rawptr, cstr.asInstanceOf[Ptr[_]].rawptr, len)
     new String(bytes, charset)
   }
 

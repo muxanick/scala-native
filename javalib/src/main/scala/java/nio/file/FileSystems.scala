@@ -7,7 +7,7 @@ import java.util.{HashMap, Map}
 
 object FileSystems {
   private lazy val fs = CreateFileSystem()
-    
+
   def getDefault(): FileSystem =
     fs
 

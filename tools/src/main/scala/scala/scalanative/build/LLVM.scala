@@ -73,7 +73,7 @@ private[scalanative] object LLVM {
     def include(path: String) = {
       if (path.contains(optPath)) {
         val name = Paths.get(path).toFile.getName.split("\\.").head
-        linkerResult.links.map(_.name).contains(name)
+        true //linkerResult.links.map(_.name).contains(name)
       } else if (path.contains(gcPath)) {
         path.contains(gcSelPath)
       } else if (isWindows && path.contains("__posix__")) {
@@ -99,18 +99,26 @@ private[scalanative] object LLVM {
       }
     }
 
+    val abs_working_dir = config.workdir.toAbsolutePath().toString()
     // generate .o files for all included source files in parallel
     paths.par.foreach { path =>
       val opath = path + ".o"
       if (include(path) && !Files.exists(Paths.get(opath))) {
         val isCpp    = path.endsWith(".cpp")
         val compiler = if (isCpp) config.clangPP.abs else config.clang.abs
-        val stdflag  = if (isCpp) (if (isWindows) "-std=c++17" else "-std=c++11") else "-std=gnu11"
-        val flags    = stdflag +: "-fvisibility=hidden" +: config.compileOptions
-        val compilec = Seq(compiler) ++ flto(config) ++ flags ++ Seq("-D_CRT_SECURE_NO_WARNINGS","-Wdeprecated-declarations", "-c",
-                                                                     path,
-                                                                     "-o",
-                                                                     opath)
+        val stdflag =
+          if (isCpp) (if (isWindows) "-std=c++17" else "-std=c++11")
+          else "-std=gnu11"
+        val flags = stdflag +: "-stdlib=libc++" +: "-fvisibility=hidden" +: config.compileOptions
+        val compilec = Seq(compiler) ++ flto(config) ++ flags ++ Seq(
+          "-gfull",
+          "-D_CRT_SECURE_NO_WARNINGS",
+          "-Wdeprecated-declarations",
+          "-I" + abs_working_dir + "\\..\\..\\..\\zlib-bin\\include",
+          "-c",
+          path,
+          "-o",
+          opath)
 
         config.logger.running(compilec)
         val result = Process(compilec, config.workdir.toFile) ! Logger
@@ -174,15 +182,23 @@ private[scalanative] object LLVM {
       // We need extra linking dependencies for:
       // * libdl for our vendored libunwind implementation.
       // * libpthread for process APIs and parallel garbage collection.
-      (if (isWindows) "Dbghelp.lib" else "pthread" +: "dl") +: srclinks ++: gclinks
+      (if (isWindows) Seq("Dbghelp.lib", "zlibd.lib") else Seq("pthread", "dl" ,"z")) ++: srclinks ++: gclinks
     }
+    println("###############################################################")
+    println(links)
+    val abs_working_dir = config.workdir.toAbsolutePath().toString()
+    println(abs_working_dir)
     val linkopts  = config.linkingOptions ++ links.map("-l" + _)
     val targetopt = Seq("-target", config.targetTriple)
-    val flags     = flto(config) ++ Seq(if (!isWindows) "-rdynamic" else "-g", "-o", outpath.abs + ".exe") ++ targetopt
-    val opaths    = IO.getAll(nativelib, "glob:**.o").map(_.abs)
-    val paths     = llPaths.map(_.abs) ++ opaths
-    val compile   = config.clangPP.abs +: (flags ++ paths ++ linkopts)
-    val ltoName   = lto(config).getOrElse("none")
+    val flags = flto(config) ++ Seq(if (!isWindows) "-rdynamic" else "-g",
+                                    "-gfull",
+                                    "-L" + abs_working_dir + "\\..\\..\\..\\zlib-bin\\lib",
+                                    "-o",
+                                    outpath.abs + ".exe") ++ targetopt
+    val opaths  = IO.getAll(nativelib, "glob:**.o").map(_.abs)
+    val paths   = llPaths.map(_.abs) ++ opaths
+    val compile = config.clangPP.abs +: (flags ++ paths ++ linkopts)
+    val ltoName = lto(config).getOrElse("none")
 
     config.logger.time(
       s"Linking native code (${config.gc.name} gc, $ltoName lto)") {

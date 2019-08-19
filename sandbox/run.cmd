@@ -1,0 +1,1 @@
+.\target\scala-2.11\sandbox-out.exe Test.scala -javabootclasspath ".\lib\scala-library.jar;.\lib\rt.jar" -bootclasspath ".\lib\scala-library.jar;.\lib\rt.jar" -Yshow-trees -Xprint:all

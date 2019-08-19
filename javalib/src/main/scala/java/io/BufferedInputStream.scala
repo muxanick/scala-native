@@ -75,7 +75,9 @@ class BufferedInputStream(_in: InputStream, size: Int)
 
     if (len == 0) 0
     else if (prepareRead()) {
+      System.out.println(s"len=$len, end=$end, pos=$pos, buf.size=${buf.length}")
       val count = Math.min(len, end - pos)
+      System.out.println(s"count=$count")
       System.arraycopy(this.buf, pos, b, off, count)
       pos += count
       count

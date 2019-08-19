@@ -140,6 +140,31 @@ class ZipFile(file: File, mode: Int, charset: Charset) extends Closeable {
       throw new ZipException("too short to be Zip")
     }
 
+    /*mRaf.seek(scanOffset)
+    if (ZipEntry.readIntLE(mRaf) != ZipFile.ENDSIG) {
+      throw new ZipException("ENDSIG not found; not a Zip archive?")
+    }
+
+    // Signature tail
+    val endTail = ZipEntry.readIntLE(mRaf);
+    // Number of Entries on this Disk
+    val endNumEntriesOnThisDisk = ZipEntry.readShortLE(mRaf);
+    // Total number of Entries
+    val endTotalNumEntries = ZipEntry.readShortLE(mRaf);
+    // Size of Central Directory in bytes
+    val endSizeOfCENInBytes = ZipEntry.readIntLE(mRaf);
+    // Offset to first Central Directory entry
+    val endOffsetToFirstCENEntry = ZipEntry.readIntLE(mRaf);
+    // Zip file comment length
+    val endCommentsLength = ZipEntry.readShortLE(mRaf);
+
+    mRaf.seek(endOffsetToFirstCENEntry)
+    if (ZipEntry.readIntLE(mRaf) != ZipEntry.CENSIG)
+    {
+      throw new ZipException("EOCD not found; not a Zip archive?")
+    }*/
+    //mRaf.seek(scanOffset + 4)
+    
     var stopOffset = scanOffset - 65536
     if (stopOffset < 0) {
       stopOffset = 0
@@ -148,7 +173,7 @@ class ZipFile(file: File, mode: Int, charset: Charset) extends Closeable {
     var done: Boolean = false
     while (!done) {
       mRaf.seek(scanOffset)
-      if (ZipEntry.readIntLE(mRaf) == 101010256L) {
+      if (ZipEntry.readIntLE(mRaf) == ZipFile.ENDSIG) {
         done = true
       } else {
         scanOffset -= 1
@@ -167,7 +192,7 @@ class ZipFile(file: File, mode: Int, charset: Charset) extends Closeable {
      * doing a read() system call every time.
      */
     var rafs = new ZipFile.RAFStream(mRaf, mRaf.getFilePointer())
-    var bin  = new BufferedInputStream(rafs, ZipFile.ENDHDR)
+    var bin  = rafs //new BufferedInputStream(rafs, ZipFile.ENDHDR)
 
     val diskNumber         = ler.readShortLE(bin)
     val diskWithCentralDir = ler.readShortLE(bin)
@@ -191,6 +216,8 @@ class ZipFile(file: File, mode: Int, charset: Charset) extends Closeable {
      * empty block signature).
      */
     scanOffset = centralDirOffset
+    mRaf.seek(scanOffset)
+    /*
     stopOffset = scanOffset + 6
 
     done = false
@@ -205,10 +232,11 @@ class ZipFile(file: File, mode: Int, charset: Charset) extends Closeable {
         }
       }
     }
+    */
 
     // If CDE is found then go and read all the entries
     rafs = new ZipFile.RAFStream(mRaf, scanOffset)
-    bin = new BufferedInputStream(rafs, 4096)
+    bin = rafs //new BufferedInputStream(rafs, 4096)
     var i = 0
     while (i < numEntries) {
       val newEntry = ZipEntry.fromInputStream(ler, bin)

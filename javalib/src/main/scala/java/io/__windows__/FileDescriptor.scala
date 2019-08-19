@@ -21,12 +21,12 @@ final class FileDescriptor private[java] (private[java] val stream: IOStream,
 
   private[java] def ignore(count: Long): Unit = stream.ignore(count)
 
-  private[java] def read(buffer: Array[Byte], offset: Int, count: Int):Int = {
+  private[java] def read(buffer: Array[Byte], offset: Int, count: Int): Int = {
     val buf = buffer.asInstanceOf[runtime.ByteArray].at(offset)
     stream.read(buf, count).toInt
   }
 
-  private[java] def write(buffer: Array[Byte], offset: Int, count: Int):Int = {
+  private[java] def write(buffer: Array[Byte], offset: Int, count: Int): Int = {
     val buf = buffer.asInstanceOf[runtime.ByteArray].at(offset)
     stream.write(buf, count).toInt
   }
@@ -47,12 +47,26 @@ object FileDescriptor {
       }
       new FileDescriptor(stream, true)
     }
-  private[io] def openWriteOnly(file: File, append: Boolean): FileDescriptor = Zone { implicit z =>
-      val flags =  OpenMode.out | OpenMode.binary | (if (append) OpenMode.app else OpenMode.trunc)
+  private[io] def openWriteOnly(file: File, append: Boolean): FileDescriptor =
+    Zone { implicit z =>
+      val flags = OpenMode.out | OpenMode.binary | (if (append) OpenMode.app
+                                                    else OpenMode.trunc)
       val stream = FStream.open(file.getPath, flags)
       if (!stream.is_open())
         throw new FileNotFoundException("Cannot open file " + file.getPath)
       else
         new FileDescriptor(stream)
     }
+  private[io] def open(file: File, mode: String): FileDescriptor = {
+    var flags = OpenMode.binary
+    if (mode.contains("r"))
+      flags |= OpenMode.in
+    if (mode.contains("w"))
+      flags |= OpenMode.out
+    val stream = FStream.open(file.getPath, flags)
+    if (!stream.is_open())
+      throw new FileNotFoundException("Cannot open file " + file.getPath)
+    else
+      new FileDescriptor(stream)
+  }
 }

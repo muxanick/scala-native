@@ -97,11 +97,12 @@ private[niocharset] object UTF_8
           out.position(outPos - outOffset)
           result
         }
-
+        //println(s"leading(Array), inPos=$inPos, outPos=$outPos")
         if (inPos == inEnd) {
           finalize(CoderResult.UNDERFLOW)
         } else {
           val leading = inArray(inPos).toInt
+          //println(s"leading(Array)=$leading")
           if (leading >= 0) {
             // US-ASCII repertoire
             if (outPos == outEnd) {
@@ -171,6 +172,7 @@ private[niocharset] object UTF_8
           CoderResult.UNDERFLOW
         } else {
           val leading = in.get().toInt
+          //println(s"leading(NoArray)=$leading")
           if (leading >= 0) {
             // US-ASCII repertoire
             if (!out.hasRemaining) {

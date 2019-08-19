@@ -2,7 +2,7 @@ package scala.scalanative.runtime
 
 import scala.scalanative.unsafe._
 
-@link("z")
+//@link("z")
 @extern
 object zlib {
   type voidpf     = Ptr[Byte]

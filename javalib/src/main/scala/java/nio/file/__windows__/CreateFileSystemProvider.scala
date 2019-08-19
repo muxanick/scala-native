@@ -3,9 +3,9 @@ package java.nio.file
 import java.nio.file.spi.FileSystemProvider
 
 object CreateFileSystem {
-    def apply(): FileSystem = null       
+  def apply(): FileSystem = null
 }
 
 object CreateFileSystemProvider {
-    def apply(): FileSystemProvider = null
+  def apply(): FileSystemProvider = null
 }

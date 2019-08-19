@@ -98,7 +98,7 @@ object Files {
 
   def createTempDirectory(dir: Path,
                           prefix: String,
-                          attrs: Array[FileAttribute[_]]): Path = 
+                          attrs: Array[FileAttribute[_]]): Path =
     createTempDirectory(dir.toFile, prefix, attrs)
 
   def createTempDirectory(prefix: String,

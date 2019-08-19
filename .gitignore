@@ -19,3 +19,7 @@ bin/
 .settings/
 .externalToolBuilders/
 .cache*
+.metals/*
+.vscode/*
+lowered.hnir
+.bloop

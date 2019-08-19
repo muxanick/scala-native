@@ -6,7 +6,14 @@ import java.nio.ByteBuffer
 import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scalanative.util.{Scope, ShowBuilder, ShowBuilderPosition, unsupported, partitionBy, procs}
+import scalanative.util.{
+  Scope,
+  ShowBuilder,
+  ShowBuilderPosition,
+  unsupported,
+  partitionBy,
+  procs
+}
 import scalanative.io.{VirtualDirectory, withScratchBuffer}
 import scalanative.nir._
 import scalanative.nir.ControlFlow.{Graph => CFG, Block, Edge}
@@ -99,9 +106,9 @@ object CodeGen {
 
     val platform: Platform = new Platform(targetTriple)
     // a position to insert an exception handler variable
-    var ehVarPosition : ShowBuilderPosition = null
-    var currentBlockName: Local = _
-    var currentBlockSplit: Int  = _
+    var ehVarPosition: ShowBuilderPosition = null
+    var currentBlockName: Local            = _
+    var currentBlockSplit: Int             = _
 
     val copies    = mutable.Map.empty[Local, Val]
     val deps      = mutable.Set.empty[Global]
@@ -449,7 +456,7 @@ object CodeGen {
           genLandingPad(unwind)
         case _ =>
           ()
-      }      
+      }
     }
 
     def genLandingPad(unwind: Next.Unwind)(implicit fresh: Fresh): Unit = {
@@ -468,7 +475,8 @@ object CodeGen {
       if (platform.isWindows) {
         line(s"$excpad:")
         indent()
-        line(s"$rec = catchswitch within none [label %$excsucc] unwind to caller")
+        line(
+          s"$rec = catchswitch within none [label %$excsucc] unwind to caller")
         unindent()
         line(s"$excsucc:")
         indent()
@@ -485,10 +493,10 @@ object CodeGen {
         // insert alloca to block entry area
         if (ehVarPosition != null) {
           insertLine(ehVarPosition,
-                      s"${platform.ehVar} = alloca ${platform.ehClassName}*")
+                     s"${platform.ehVar} = alloca ${platform.ehClassName}*")
           ehVarPosition = null
         }
-      } else { 
+      } else {
         line(s"$excpad:")
         indent()
         line(s"$rec = ${Impl.landingpad(platform)}")
